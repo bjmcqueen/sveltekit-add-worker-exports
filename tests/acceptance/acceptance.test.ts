@@ -36,9 +36,13 @@ const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../..');
 /** Port the plugin's dev sidecar listens on (the plugin's default). */
 const SIDECAR_PORT = 8787;
 
+// `userTextRule`: example-v3 declares a `**/*.frag` Text rule in its
+// wrangler.jsonc and EchoDO replies to `/frag` with the imported file;
+// example has no `rules` config, so its `/sql` reply proves wrangler's
+// default module rules alone.
 const APPS = [
-	{ name: 'example', vitePort: 5301, previewPort: 5302, inspectorPort: 9401 },
-	{ name: 'example-v3', vitePort: 5303, previewPort: 5304, inspectorPort: 9402 }
+	{ name: 'example', vitePort: 5301, previewPort: 5302, inspectorPort: 9401, userTextRule: false },
+	{ name: 'example-v3', vitePort: 5303, previewPort: 5304, inspectorPort: 9402, userTextRule: true }
 ];
 
 const uniqueRoom = () => `room-${randomUUID()}`;
@@ -117,6 +121,28 @@ for (const app of APPS) {
 			const res = await fetch(`${sidecarUrl}/__scheduled?cron=*+*+*+*+*`);
 			expect(res.status).toBe(200);
 		});
+
+		test('DO replies with the imported .sql module (wrangler default rules)', async () => {
+			const ws = await WsClient.connect(`ws://localhost:${SIDECAR_PORT}/ws/${uniqueRoom()}`);
+			try {
+				ws.send('/sql');
+				await ws.waitFor((m) => m.includes('hello from sql'), 15_000);
+			} finally {
+				ws.close();
+			}
+		});
+
+		if (app.userTextRule) {
+			test('DO replies with the imported .frag module (user-defined rule)', async () => {
+				const ws = await WsClient.connect(`ws://localhost:${SIDECAR_PORT}/ws/${uniqueRoom()}`);
+				try {
+					ws.send('/frag');
+					await ws.waitFor((m) => m.includes('hello from frag'), 15_000);
+				} finally {
+					ws.close();
+				}
+			});
+		}
 	});
 
 	describe(`${app.name} — built mode (vite build + wrangler dev)`, () => {
@@ -159,6 +185,9 @@ for (const app of APPS) {
 			for (const className of ['EchoDO', 'BotWorkflow', 'VoicedAgent']) {
 				expect(extra).toContain(className);
 			}
+			// The .sql import is inlined as a string by the module-rules
+			// esbuild plugin (wrangler's default `**/*.sql` Text rule).
+			expect(extra).toContain('hello from sql');
 			const assetsIgnore = await readFile(join(outDir, '.assetsignore'), 'utf-8');
 			for (const entry of [
 				'_sveltekit_worker.js',
@@ -215,6 +244,28 @@ for (const app of APPS) {
 			const res = await fetch(`${baseUrl}/__scheduled?cron=*+*+*+*+*`);
 			expect(res.status).toBe(200);
 		});
+
+		test('DO replies with the imported .sql module (wrangler default rules)', async () => {
+			const ws = await WsClient.connect(`ws://localhost:${app.previewPort}/ws/${uniqueRoom()}`);
+			try {
+				ws.send('/sql');
+				await ws.waitFor((m) => m.includes('hello from sql'), 15_000);
+			} finally {
+				ws.close();
+			}
+		});
+
+		if (app.userTextRule) {
+			test('DO replies with the imported .frag module (user-defined rule)', async () => {
+				const ws = await WsClient.connect(`ws://localhost:${app.previewPort}/ws/${uniqueRoom()}`);
+				try {
+					ws.send('/frag');
+					await ws.waitFor((m) => m.includes('hello from frag'), 15_000);
+				} finally {
+					ws.close();
+				}
+			});
+		}
 
 		test('plugin bundles are not served as public assets', async () => {
 			for (const path of ['/_extra_exports.js', '/_sveltekit_worker.js.map']) {

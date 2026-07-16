@@ -1,5 +1,10 @@
 import { DurableObject } from 'cloudflare:workers';
 
+// Imported as a string via wrangler's default `**/*.sql` Text module rule —
+// works in dev (wrangler sidecar) and build (plugin's esbuild pass) alike.
+// See https://github.com/oselvar/sveltekit-add-worker-exports/issues/8
+import greetingSql from './greeting.sql';
+
 type Attachment = { roomName: string };
 
 export class EchoDO extends DurableObject<Env> {
@@ -23,6 +28,11 @@ export class EchoDO extends DurableObject<Env> {
 		};
 		const preview = typeof message === 'string' ? message : `<${message.byteLength} bytes>`;
 		console.log(`[${roomName}] message: ${preview}`);
+
+		if (message === '/sql') {
+			ws.send(greetingSql);
+			return;
+		}
 
 		for (const client of this.ctx.getWebSockets()) {
 			client.send(message);

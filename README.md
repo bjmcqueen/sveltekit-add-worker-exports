@@ -217,6 +217,49 @@ declare global {
 }
 ```
 
+## Importing non-JS modules (`.sql`, `.txt`, …)
+
+Wrangler lets workers import non-JavaScript files as modules via
+[module rules](https://developers.cloudflare.com/workers/wrangler/configuration/#bundling):
+`Text` rules import as a `string`, `Data` rules as an `ArrayBuffer`. Wrangler
+applies a set of default rules even without any config — `**/*.txt`,
+`**/*.html`, and `**/*.sql` as `Text`, `**/*.bin` as `Data`.
+
+The plugin honors the same contract in both modes: the dev sidecar is bundled
+by wrangler itself, and the build-mode esbuild pass translates the `rules`
+from your wrangler config (plus wrangler's defaults) into esbuild loaders and
+inlines the file contents into `_extra_exports.js`.
+
+This makes [Drizzle's durable-sqlite migrations](https://orm.drizzle.team/docs/sqlite/connect-cloudflare-do)
+work out of the box ([#8](https://github.com/oselvar/sveltekit-add-worker-exports/issues/8)):
+the generated `drizzle/migrations.js` imports `.sql` files, which wrangler's
+default rules cover — no `rules` config needed. Custom extensions need a rule:
+
+```jsonc
+// wrangler.jsonc
+"rules": [{ "type": "Text", "globs": ["**/*.graphql"], "fallthrough": true }]
+```
+
+And a type declaration so TypeScript accepts the import:
+
+```typescript
+// src/app.d.ts
+declare module '*.graphql' {
+	const contents: string;
+	export default contents;
+}
+```
+
+Caveats:
+
+- `CompiledWasm`, `PythonModule`, and `PythonRequirement` rules can't be
+  inlined into the single-file production bundle; importing a file matched by
+  one fails the build with an explanatory error.
+- Glob matching in build mode uses miniflare's matcher (`globstar` semantics,
+  matched against resolved file paths) while wrangler's dev bundler matches
+  import specifiers with non-`globstar` semantics. The canonical shapes
+  (`**/*.ext`) behave identically under both; exotic globs may differ.
+
 ## Options
 
 | Option | Type | Required | Default | Description |
@@ -232,7 +275,7 @@ declare global {
 
 The plugin runs after SvelteKit's adapter has generated `_worker.js`. SvelteKit v2 runs the adapter in Vite's `closeBundle` hook, while SvelteKit v3 moved it into the newer `buildApp` hook (which runs *after* every `closeBundle`). The plugin registers its patch step on **both** hooks (idempotent), so whichever one runs after the adapter does the work:
 
-1. Bundles your `entryPoint` with esbuild into `_extra_exports.js`
+1. Bundles your `entryPoint` with esbuild into `_extra_exports.js`, applying the wrangler config's module `rules` (plus wrangler's defaults) so `.sql`/`.txt`-style imports are inlined — see [Importing non-JS modules](#importing-non-js-modules-sql-txt-)
 2. Renames the original `_worker.js` to `_sveltekit_worker.js`
 3. Creates a new `_worker.js` that re-exports the named exports and merges the entry's `default` handlers (`scheduled`, `queue`, `email`, …) onto the SvelteKit default:
 

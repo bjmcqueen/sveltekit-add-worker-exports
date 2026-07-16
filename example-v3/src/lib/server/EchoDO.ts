@@ -1,5 +1,13 @@
 import { DurableObject } from 'cloudflare:workers';
 
+// banner.frag is covered by the user-defined `**/*.frag` Text rule in
+// wrangler.jsonc; greeting.sql by wrangler's default `**/*.sql` Text rule.
+// Both import as strings in dev (wrangler sidecar) and build (plugin's
+// esbuild pass) alike.
+// See https://github.com/oselvar/sveltekit-add-worker-exports/issues/8
+import bannerFrag from './banner.frag';
+import greetingSql from './greeting.sql';
+
 type Attachment = { roomName: string };
 
 export class EchoDO extends DurableObject<Env> {
@@ -23,6 +31,15 @@ export class EchoDO extends DurableObject<Env> {
 		};
 		const preview = typeof message === 'string' ? message : `<${message.byteLength} bytes>`;
 		console.log(`[${roomName}] message: ${preview}`);
+
+		if (message === '/sql') {
+			ws.send(greetingSql);
+			return;
+		}
+		if (message === '/frag') {
+			ws.send(bannerFrag);
+			return;
+		}
 
 		for (const client of this.ctx.getWebSockets()) {
 			client.send(message);

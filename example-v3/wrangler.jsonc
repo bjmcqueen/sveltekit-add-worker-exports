@@ -4,6 +4,9 @@
 	"compatibility_date": "2026-05-13",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": ".svelte-kit/cloudflare/_worker.js",
+	// User-defined module rule: .frag imports resolve to the file contents as
+	// a string, in dev (wrangler sidecar) and build (plugin's esbuild pass).
+	"rules": [{ "type": "Text", "globs": ["**/*.frag"], "fallthrough": true }],
 	"triggers": {
 		"crons": ["*/5 * * * *"]
 	},

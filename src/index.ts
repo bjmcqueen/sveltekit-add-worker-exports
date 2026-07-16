@@ -28,10 +28,23 @@ import { builtinModules as NODE_BUILTINS } from 'node:module';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parse as parseJsonc } from 'jsonc-parser';
-import { getNodeCompat, WorkerdStructuredLog, type NodeJSCompatMode } from 'miniflare';
+import {
+	getNodeCompat,
+	WorkerdStructuredLog,
+	type ModuleRule,
+	type NodeJSCompatMode
+} from 'miniflare';
 import { parse as parseToml } from 'smol-toml';
 import type { Plugin } from 'vite';
 import type { Unstable_Config } from 'wrangler';
+import { createModuleRulesPlugin, toModuleRule, type WranglerRule } from './moduleRules.js';
+
+export {
+	createModuleRulesPlugin,
+	toModuleRule,
+	WRANGLER_DEFAULT_MODULE_RULES,
+	type WranglerRule
+} from './moduleRules.js';
 
 /**
  * Parses a wrangler config file. Picks the parser by extension:
@@ -152,6 +165,31 @@ export function addWorkerExports(options: AddWorkerExportsOptions): Plugin[] {
  * Returns `true` if it patched (or had already patched), `false` if the
  * adapter hasn't written `_worker.js` yet.
  */
+/**
+ * Reads the module `rules` from the wrangler config (auto-discovered, or
+ * `options.wranglerConfig` when set) for the build-mode bundle. Wrangler
+ * resolves `CLOUDFLARE_ENV` and per-env `rules` inheritance itself.
+ *
+ * When no config is found by auto-discovery, wrangler returns an empty
+ * config, so this yields no user rules (wrangler's default rules still
+ * apply). A missing `wranglerConfig` path, a syntax error, or a validation
+ * error throws and fails the build — the same config would fail
+ * `wrangler dev`/`deploy`, so surfacing it here is strictly earlier, not a
+ * new requirement.
+ */
+export async function readModuleRules(options: AddWorkerExportsOptions): Promise<ModuleRule[]> {
+	// Dynamic import: loading wrangler's bundle takes ~500ms, and this module
+	// is evaluated on every vite invocation via vite.config.ts. Deferring the
+	// import to the once-per-run call sites (here and the dev plugin's
+	// configureServer) keeps that cost out of vite's config load.
+	const { unstable_readConfig } = await import('wrangler');
+	const config = unstable_readConfig(
+		options.wranglerConfig ? { config: options.wranglerConfig } : {},
+		{ hideWarnings: true }
+	);
+	return ((config.rules ?? []) as WranglerRule[]).map(toModuleRule);
+}
+
 async function patchWorker(options: AddWorkerExportsOptions): Promise<boolean> {
 	const outputDir = resolve(options.outputDir ?? '.svelte-kit/cloudflare');
 	const workerPath = resolve(outputDir, '_worker.js');
@@ -181,6 +219,10 @@ async function patchWorker(options: AddWorkerExportsOptions): Promise<boolean> {
 	// `require('path')` or `import 'node:async_hooks'` survive bundling;
 	// the Workers runtime resolves them when `nodejs_compat` is enabled
 	// in wrangler.jsonc.
+	//
+	// The module-rules plugin applies the wrangler config's `rules` (plus
+	// wrangler's defaults, e.g. `.sql`/`.txt` as Text), matching what
+	// wrangler's own bundler does for the dev sidecar. See moduleRules.ts.
 	await build({
 		entryPoints: [options.entryPoint],
 		bundle: true,
@@ -189,6 +231,7 @@ async function patchWorker(options: AddWorkerExportsOptions): Promise<boolean> {
 		target: 'esnext',
 		conditions: ['workerd', 'worker', 'browser'],
 		external: ['cloudflare:*', ...NODE_BUILTINS, ...NODE_BUILTINS.map((m) => `node:${m}`)],
+		plugins: [createModuleRulesPlugin(await readModuleRules(options))],
 		outfile: exportsPath
 	});
 
@@ -262,6 +305,7 @@ function devPlugin(options: AddWorkerExportsOptions): Plugin {
 	let proxyConfigPath: string | null = null;
 
 	async function readRawConfig(): Promise<{ path: string; contents: string }> {
+		// Dynamic import — see readModuleRules for why.
 		const { unstable_readConfig } = await import('wrangler');
 		const parsed = unstable_readConfig(
 			options.wranglerConfig ? { config: options.wranglerConfig } : {}
@@ -284,6 +328,7 @@ function devPlugin(options: AddWorkerExportsOptions): Plugin {
 		},
 
 		async configureServer(server) {
+			// Dynamic import — see readModuleRules for why.
 			const { unstable_startWorker } = await import('wrangler');
 			const { path: configPath, contents } = await readRawConfig();
 			const baseConfig = parseWranglerConfig(configPath, contents) as any;

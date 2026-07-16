@@ -11,4 +11,10 @@ declare global {
 	}
 }
 
+// Imported as a string via wrangler's default `**/*.sql` Text module rule.
+declare module '*.sql' {
+	const contents: string;
+	export default contents;
+}
+
 export {};
