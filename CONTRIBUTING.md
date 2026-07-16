@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 18
+- [Node.js](https://nodejs.org/) >= 26 (pinned in `.tool-versions` for [asdf](https://asdf-vm.com/)/[mise](https://mise.jdx.dev/) users)
 - [pnpm](https://pnpm.io/)
 
 ## Setup
@@ -32,7 +32,7 @@ pnpm test:acceptance   # acceptance tests for the example apps
 
 The acceptance tests (`tests/acceptance/`) exercise both example apps (`example/` on SvelteKit v2, `example-v3/` on SvelteKit v3) in **dev mode** (`vite dev` + the plugin's wrangler sidecar) and **built mode** (`vite build` + `wrangler dev` serving the merged `_worker.js`). They spawn the apps as child processes and drive them headlessly with `fetch` and Node's built-in `WebSocket` — no browser. Each mode verifies the Durable Object echo, the Workflow bot reply, `platform.env` DO/Workflow calls from `+server.ts` routes, and the `scheduled` handler.
 
-They need Node >= 22 and ports 5301–5304, 8787, and 9401–9402 free, and they run sequentially (the dev sidecar always binds 8787). Expect a few minutes of runtime. Both suites run in CI on every push and pull request (`.github/workflows/ci.yml`).
+They need Node >= 26 and ports 5301–5304, 8787, and 9401–9402 free, and they run sequentially (the dev sidecar always binds 8787). Expect a few minutes of runtime. Both suites run in CI on every push and pull request (`.github/workflows/ci.yml`).
 
 ### Testing locally
 

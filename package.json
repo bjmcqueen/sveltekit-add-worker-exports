@@ -55,6 +55,13 @@
 		"release": "release-it"
 	},
 	"packageManager": "pnpm@11.9.0",
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": ">=26",
+			"onFail": "warn"
+		}
+	},
 	"dependencies": {
 		"jsonc-parser": "^3.3.1",
 		"smol-toml": "^1.7.0"
