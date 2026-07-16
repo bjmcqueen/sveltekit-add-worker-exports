@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.2](https://github.com/oselvar/sveltekit-add-worker-exports/compare/v2.1.1...v2.1.2) (2026-07-16)
+
+### Bug Fixes
+
+* honor wrangler module rules in the production bundle ([8d54892](https://github.com/oselvar/sveltekit-add-worker-exports/commit/8d548923dd713c6c153e1c004a35e8f424f083a3)), closes [#8](https://github.com/oselvar/sveltekit-add-worker-exports/issues/8)
+
 ## [2.1.1](https://github.com/oselvar/sveltekit-add-worker-exports/compare/v2.1.0...v2.1.1) (2026-06-20)
 
 ### Bug Fixes
