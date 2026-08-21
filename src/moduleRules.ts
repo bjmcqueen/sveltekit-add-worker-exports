@@ -23,13 +23,27 @@
 
 import type { Plugin as EsbuildPlugin, OnLoadResult } from 'esbuild';
 import { readFile } from 'node:fs/promises';
-import {
-	compileModuleRules,
-	globsToRegExps,
-	testRegExps,
-	type ModuleRule,
-	type ModuleRuleType
-} from 'miniflare';
+import { compileModuleRules, globsToRegExps, testRegExps } from 'miniflare';
+
+// Declared locally rather than imported from miniflare: this exact type has
+// been renamed between miniflare versions (ModuleRule <-> V4ModuleRule),
+// and TypeScript's structural typing means a locally-declared type with the
+// same shape satisfies compileModuleRules' parameter regardless of which
+// name the installed miniflare version currently uses.
+export type ModuleRuleType =
+	| 'ESModule'
+	| 'CommonJS'
+	| 'Text'
+	| 'Data'
+	| 'CompiledWasm'
+	| 'PythonModule'
+	| 'PythonRequirement';
+
+export type ModuleRule = {
+	type: ModuleRuleType;
+	include: string[];
+	fallthrough?: boolean;
+};
 
 /** A module rule as it appears in wrangler config (miniflare uses `include`). */
 export interface WranglerRule {

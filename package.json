@@ -52,7 +52,8 @@
 		"test": "vitest run && tsc --noEmit",
 		"test:acceptance": "pnpm build && vitest run --config vitest.acceptance.config.ts",
 		"prepublishOnly": "tsc",
-		"release": "release-it"
+		"release": "release-it",
+		"prepare": "tsc"
 	},
 	"packageManager": "pnpm@11.9.0",
 	"devEngines": {

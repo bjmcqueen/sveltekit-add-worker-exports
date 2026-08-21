@@ -28,16 +28,16 @@ import { builtinModules as NODE_BUILTINS } from 'node:module';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parse as parseJsonc } from 'jsonc-parser';
-import {
-	getNodeCompat,
-	WorkerdStructuredLog,
-	type ModuleRule,
-	type NodeJSCompatMode
-} from 'miniflare';
+import { getNodeCompat, WorkerdStructuredLog, type NodeJSCompatMode } from 'miniflare';
 import { parse as parseToml } from 'smol-toml';
 import type { Plugin } from 'vite';
 import type { Unstable_Config } from 'wrangler';
-import { createModuleRulesPlugin, toModuleRule, type WranglerRule } from './moduleRules.js';
+import {
+	createModuleRulesPlugin,
+	toModuleRule,
+	type ModuleRule,
+	type WranglerRule
+} from './moduleRules.js';
 
 export {
 	createModuleRulesPlugin,
